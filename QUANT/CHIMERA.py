@@ -48,7 +48,7 @@ df['Sign'] = np.sign(df['Return'])
 df['RSI'] = 100 - (100 / (1 + df['Return'].rolling(14).apply(lambda x: x[x>0].sum()/abs(x[x<0].sum()) if abs(x[x<0].sum()) > 0 else 1)))
 df['Vol_MA_20'] = df['Realized_Vol'].rolling(20).mean()
 
-# --- POINT CRITIQUE : GESTION DU BIAIS DU FUTUR ---
+# --- gestion du lookahead bias---
 # Pour prédire l'erreur de demain (J), XGBoost ne peut utiliser que les infos d'hier (J-1).
 # On crée des colonnes décalées (Lag).
 df['XGB_RSI'] = df['RSI'].shift(1)
@@ -64,7 +64,7 @@ print(df[['VIX', 'VIX_High', 'VIX_Panic']].tail(5))
 print(f"Moyenne de la panique : {df['VIX_Panic'].mean():.5f}")
 print("------------------------------\n")
 
-# Conversion en Tensors pour PyTorch
+# convertir en tensors pour pytorch
 gk_tensor = torch.tensor(df['GK_Log'].values, dtype=torch.float32)
 vix_tensor = torch.tensor(df['VIX_Log'].values, dtype=torch.float32)
 sign_tensor = torch.tensor(df['Sign'].values, dtype=torch.float32)
@@ -73,7 +73,7 @@ returns_tensor = torch.tensor(df['Return'].values, dtype=torch.float32)
 print(f"Données chargées : {len(df)} jours.")
 
 
-print("\n=== 2. ÉTAGE 1 : MOTEUR EGARCH (PYTORCH) ===")
+print("\n=== 2. ÉTAPE 1 : (PYTORCH) ===")
 
 # --- A. Définition des Paramètres (Variables à optimiser) ---
 # On n'utilise pas de classe, juste des variables brutes.
@@ -88,7 +88,7 @@ gamma = torch.tensor(0.1,  requires_grad=True) # Impact VIX
 params = [omega, beta, alpha, theta, gamma]
 optimizer = optim.Adam(params, lr=LR)
 
-# --- B. Fonction de calcul de la variance (La Recette) ---
+# --- B. Fonction de calcul de la variance
 def calculate_egarch_variance(gk, vix, sign):
     """Calcule toute la série de variance temporelle."""
     log_sigma2 = []
@@ -239,7 +239,7 @@ next_log_var = omega + \
 
 next_pred_base = torch.sqrt(torch.exp(next_log_var)).item()
 
-# Correction XGboost, on prend les valeurs brutes de Vendredi (pas les colonnes Shiftées XGB_...)
+# Correction XGboost, on prend les valeurs brutes de Vendredi 
 
 last_features = pd.DataFrame([{
     'XGB_RSI': df['RSI'].iloc[-1],      # RSI de Vendredi
